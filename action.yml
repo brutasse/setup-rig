@@ -1,0 +1,47 @@
+name: "Setup rig"
+description: "Install the rig binary (SHA256-verified from the brutasse/rig release), install the JVM/GraalVM pinned in deps.lock, and manage rig's artifact cache, keyed on deps.lock. The caches are saved automatically at the end of the job."
+
+inputs:
+  version:
+    description: "rig version to install (e.g. v0.1.0). Defaults to the latest release."
+    required: false
+    default: ""
+  token:
+    description: "GitHub token for the latest-release lookup (avoids API rate limits). Caching uses the job's runtime token automatically."
+    required: false
+    default: ""
+  enable-cache:
+    description: "Restore the artifact cache at setup and save it at the end of the job, keyed on deps.lock."
+    required: false
+    default: "true"
+  enable-jvm:
+    description: "Install the JVM pinned in deps.lock (rig jvm install, Temurin, sha256-verified) into the rig state dir. No-op when the lock pins no JVM."
+    required: false
+    default: "true"
+  enable-graalvm:
+    description: "Install a GraalVM for native-image builds: auto (only when the lock carries a graalvm block), true (also derived from the JVM pin), false."
+    required: false
+    default: "auto"
+  java-on-path:
+    description: "Export JAVA_HOME/GRAALVM_HOME and prepend their bin dirs to PATH for later steps (rig commands use the pinned JVM either way)."
+    required: false
+    default: "false"
+
+outputs:
+  rig-version:
+    description: "the rig version that was installed"
+  cache-hit:
+    description: "true when the cache was restored"
+  jvm-version:
+    description: "the JVM major pinned in deps.lock and installed (empty when none)"
+  graalvm-version:
+    description: "the GraalVM major installed for native builds (empty when none)"
+  java-home:
+    description: "JAVA_HOME of the installed managed JDK (empty on rig releases without 'rig jvm path')"
+  graalvm-home:
+    description: "GRAALVM_HOME of the installed GraalVM (empty on rig releases without 'rig graalvm path')"
+
+runs:
+  using: "node24"
+  main: "dist/restore/index.js"
+  post: "dist/save/index.js"

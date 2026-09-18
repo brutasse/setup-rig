@@ -1,0 +1,73 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  install-and-cache:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Provide a lockfile to key the cache on
+        run: printf '{:artifacts {}}\n' > deps.lock
+
+      - name: Setup rig (install + cache)
+        id: setup
+        uses: ./
+        with:
+          version: v0.1.0
+          token: ${{ github.token }}
+          enable-cache: true
+
+      - name: Verify install
+        run: |
+          command -v rig
+          rig --version
+
+      - name: Show outputs
+        run: |
+          echo "rig-version=${{ steps.setup.outputs.rig-version }}"
+          echo "cache-hit=${{ steps.setup.outputs.cache-hit }}"
+
+  pinned-jvm:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Provide a lockfile pinning the JVM and GraalVM
+        run: |
+          cat > deps.lock <<'EOF'
+          {"version": 2, "jvm": {"vendor": "temurin", "requested": "21"}, "graalvm": {"vendor": "graalvm", "requested": "21"}}
+          EOF
+
+      - name: Setup rig (install + cache + pinned toolchain)
+        id: setup
+        uses: ./
+        with:
+          # v0.2.1 has the jvm/graalvm commands; the path commands are not in
+          # a release yet, so java-home/graalvm-home may be empty here.
+          version: v0.2.1
+          token: ${{ github.token }}
+          enable-cache: true
+
+      - name: Show outputs
+        run: |
+          echo "jvm-version=${{ steps.setup.outputs.jvm-version }}"
+          echo "graalvm-version=${{ steps.setup.outputs.graalvm-version }}"
+          echo "java-home=${{ steps.setup.outputs.java-home }}"
+          echo "graalvm-home=${{ steps.setup.outputs.graalvm-home }}"
+
+      - name: Verify the managed toolchain installs
+        run: |
+          rig jvm list
+          rig graalvm list
+          rig jvm list | grep -q 'temurin 21'
+          rig graalvm list | grep -q 'graalvm 21'

@@ -1,0 +1,17 @@
+{
+  "name": "setup-rig",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Reusable GitHub Action: install rig and restore/save its artifact cache, keyed on deps.lock",
+  "main": "dist/restore/index.js",
+  "scripts": {
+    "build": "ncc build src/restore.js -o dist/restore && ncc build src/save.js -o dist/save"
+  },
+  "dependencies": {
+    "@actions/cache": "^4.1.0",
+    "@actions/core": "^1.11.1"
+  },
+  "devDependencies": {
+    "@vercel/ncc": "^0.45.0"
+  }
+}
