@@ -37,9 +37,9 @@ outputs:
   graalvm-version:
     description: "the GraalVM major installed for native builds (empty when none)"
   java-home:
-    description: "JAVA_HOME of the installed managed JDK (empty on rig releases without 'rig jvm path')"
+    description: "JAVA_HOME of the installed managed JDK (empty below rig v0.3.0)"
   graalvm-home:
-    description: "GRAALVM_HOME of the installed GraalVM (empty on rig releases without 'rig graalvm path')"
+    description: "GRAALVM_HOME of the installed GraalVM (empty below rig v0.3.0)"
 
 runs:
   using: "node24"

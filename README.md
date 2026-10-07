@@ -23,10 +23,10 @@ If you do not specify a version, the latest [rig](https://github.com/brutasse/ri
 release is installed. To install a specific version, pin `version`:
 
 ```yaml
-- name: Install rig v0.2.1
+- name: Install rig v0.3.0
   uses: brutasse/setup-rig@v1
   with:
-    version: v0.2.1
+    version: v0.3.0
     token: ${{ github.token }}
 ```
 
@@ -42,7 +42,7 @@ jobs:
       - name: Install rig + cache
         uses: brutasse/setup-rig@v1
         with:
-          version: v0.2.1
+          version: v0.3.0
           token: ${{ github.token }}
 
       - name: Verify, check and test (frozen)
@@ -63,7 +63,7 @@ All inputs and their defaults:
 - name: Install rig with all available options
   uses: brutasse/setup-rig@v1
   with:
-    # The version of rig to install, e.g., "v0.2.1" (default: latest release)
+    # The version of rig to install, e.g., "v0.3.0" (default: latest release)
     version: ""
 
     # GitHub token for the latest-release lookup, avoids API rate limits
@@ -135,10 +135,10 @@ re-downloads a JDK, and projects pinning nothing pay nothing.
 If steps other than rig need the toolchain, use the `java-home` /
 `graalvm-home` outputs, or set `java-on-path: true` to export
 `JAVA_HOME`/`GRAALVM_HOME` and prepend their `bin` dirs. (The homes come
-from rig's `jvm path` / `graalvm path` commands; they stay empty on releases
-that predate them.) To make rig use a workflow-provided JDK or GraalVM
-instead — e.g. one from `gradle/setup-graalvm` — point `RIG_JAVA` /
-`RIG_GRAALVM_HOME` at it; rig trusts those overrides as-is.
+from rig's `jvm path` / `graalvm path` commands, added in rig v0.3.0.) To
+make rig use a workflow-provided JDK or GraalVM instead — e.g. one from
+`gradle/setup-graalvm` — point `RIG_JAVA` / `RIG_GRAALVM_HOME` at it; rig
+trusts those overrides as-is.
 
 ## Outputs
 
@@ -148,8 +148,8 @@ instead — e.g. one from `gradle/setup-graalvm` — point `RIG_JAVA` /
 | `cache-hit` | `true` when the cache was restored |
 | `jvm-version` | the JVM major pinned in `deps.lock` and installed (empty when none) |
 | `graalvm-version` | the GraalVM major installed for native builds (empty when none) |
-| `java-home` | `JAVA_HOME` of the installed managed JDK (empty on older rig releases) |
-| `graalvm-home` | `GRAALVM_HOME` of the installed GraalVM (empty on older rig releases) |
+| `java-home` | `JAVA_HOME` of the installed managed JDK (empty below rig v0.3.0) |
+| `graalvm-home` | `GRAALVM_HOME` of the installed GraalVM (empty below rig v0.3.0) |
 
 ## Build
 
