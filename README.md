@@ -52,8 +52,9 @@ jobs:
           rig test --frozen
 ```
 
-The `uses:` ref is pinned to a tag and rewritten to a git SHA by CI on each
-tag push.
+The `uses:` refs are SHA-pinned with a version comment — the form renovate
+bumps automatically, and CI rewrites them to the newest release on every tag
+push. The floating `v1` tag is published too, but prefer the SHA pin.
 
 ### Inputs
 
