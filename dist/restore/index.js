@@ -40474,8 +40474,10 @@ const fs = __nccwpck_require__(79896);
 const os = __nccwpck_require__(70857);
 const path = __nccwpck_require__(16928);
 const { execFileSync } = __nccwpck_require__(35317);
+const glob = __nccwpck_require__(47206);
 
 const REPO = 'brutasse/rig';
+const DEFAULT_LOCKFILE = 'deps.lock';
 
 function rigBinaryName() {
   const osName = process.platform === 'linux' ? 'linux'
@@ -40592,33 +40594,69 @@ function prepareCachePaths() {
   return paths;
 }
 
-// The cache key: platform + sha256 of the committed lockfile. Same lock ->
-// warm hit; a changed lock -> miss and re-fetch.
-function cacheKey() {
-  const lockPath = path.join(process.env.GITHUB_WORKSPACE || process.cwd(), 'deps.lock');
-  const lockHash = fs.existsSync(lockPath) ? sha256File(lockPath) : 'no-lock';
+// Resolve the `lockfile` input: workspace-relative paths or glob patterns,
+// whitespace/newline-separated (a monorepo matches its rig modules with e.g.
+// `services/*/deps.lock`). Returns sorted, deduped absolute paths. Nothing
+// matched is only tolerated for the untouched default — a repo without a
+// deps.lock then keeps the pre-lockfile behavior (no-lock key, no pins);
+// an explicit pattern that matches nothing is a typo and fails.
+async function resolveLockFiles(patterns) {
+  const list = String(patterns || DEFAULT_LOCKFILE).split(/[\s,]+/).filter(Boolean);
+  const ws = process.env.GITHUB_WORKSPACE || process.cwd();
+  const matcher = await glob.create(list.map((p) => path.resolve(ws, p)).join('\n'));
+  const files = [...new Set(await matcher.glob())].sort();
+  if (!files.length && list.join(' ') !== DEFAULT_LOCKFILE) {
+    throw new Error(`setup-rig: no deps.lock matched '${list.join(' ')}'`);
+  }
+  return files;
+}
+
+// The cache key: platform + the lock content. One lock -> sha256 of its
+// bytes; several locks -> one hash over the (path, hash) pairs, sorted —
+// every module writes into the same global stores, so the cache is restored
+// and saved as one unit and any lock bump re-fetches it all.
+function cacheKey(files) {
+  let lockHash = 'no-lock';
+  if (files.length === 1) {
+    lockHash = sha256File(files[0]);
+  } else if (files.length > 1) {
+    const ws = process.env.GITHUB_WORKSPACE || process.cwd();
+    const h = crypto.createHash('sha256');
+    for (const f of files) h.update(`${path.relative(ws, f)}\0${sha256File(f)}\0`);
+    lockHash = h.digest('hex');
+  }
   return `rig-${process.platform}-${process.arch}-${lockHash}`;
 }
 
-// The toolchain pins from deps.lock (JSON): {"jvm":{"requested":"21"},
-// "graalvm":{"requested":"21"}}. A missing or unparseable lock (e.g. a stub
-// lock) reads as "no pins" — the action then behaves as it did before JVM
-// support. rig itself validates the lock; the action only reads pins.
-function readLockPins() {
-  const lockPath = path.join(process.env.GITHUB_WORKSPACE || process.cwd(), 'deps.lock');
-  let doc;
-  try {
-    doc = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
-  } catch {
-    return {};
-  }
+// The toolchain pins from the deps.lock files (JSON): {"jvm":{"requested":
+// "21"}, "graalvm":{"requested":"21"}}. A missing or unparseable lock (e.g.
+// a stub lock) contributes no pins — the action then behaves as it did
+// before JVM support. One lock pins a block when it has it; across locks
+// the pins must agree, since the action installs one toolchain and reports
+// one java-home. rig itself validates the locks; the action only reads pins.
+function readLockPins(files) {
   const requested = (block) =>
     block && typeof block.requested === 'string' && /^\d{1,2}$/.test(block.requested.trim()) ? block.requested.trim() : '';
   const pins = {};
-  const jvm = requested(doc && doc.jvm);
-  const graalvm = requested(doc && doc.graalvm);
-  if (jvm) pins.jvm = jvm;
-  if (graalvm) pins.graalvm = graalvm;
+  for (const block of ['jvm', 'graalvm']) {
+    const owners = {};
+    for (const f of files) {
+      let doc;
+      try {
+        doc = JSON.parse(fs.readFileSync(f, 'utf8'));
+      } catch {
+        continue;
+      }
+      const v = requested(doc && doc[block]);
+      if (v) (owners[v] = owners[v] || []).push(f);
+    }
+    const values = Object.keys(owners);
+    if (values.length > 1) {
+      const detail = values.map((v) => `${v} (in ${owners[v].join(', ')})`).join(' vs ');
+      throw new Error(`setup-rig: the deps.lock files disagree on the ${block} pin: ${detail}`);
+    }
+    if (values.length === 1) pins[block] = values[0];
+  }
   return pins;
 }
 
@@ -40697,6 +40735,7 @@ module.exports = {
   rigStateDir,
   cachePaths,
   prepareCachePaths,
+  resolveLockFiles,
   cacheKey,
   readLockPins,
   jvmPlan,
@@ -90186,6 +90225,13 @@ async function run() {
     throw new Error(`setup-rig: bad enable-graalvm '${enableGraalvm}' (want auto, true or false)`);
   }
 
+  // 0. Find the lockfile(s) (globs allowed, monorepo-friendly). Resolve
+  // before downloading anything: a bad lockfile pattern should fail fast.
+  const locks = await common.resolveLockFiles(core.getInput('lockfile'));
+  if (locks.length > 1) {
+    core.info(`setup-rig: ${locks.length} lockfiles: ${locks.join(', ')}`);
+  }
+
   // 1. Install rig (download + SHA256-verify + PATH).
   const inst = await common.installRig(version, token);
   core.addPath(inst.installDir);
@@ -90193,9 +90239,9 @@ async function run() {
   core.saveState('setup-rig-setup', 'true');
   core.info(`setup-rig: installed rig ${inst.version} (${inst.bin}) -> ${inst.dest}`);
 
-  // 2. Restore the artifact cache (key = platform + sha256(deps.lock)).
+  // 2. Restore the artifact cache (key = platform + lock content hash).
   if (enableCache) {
-    const key = common.cacheKey();
+    const key = common.cacheKey(locks);
     let hit = false;
     try {
       hit = !!(await cache.restoreCache(common.prepareCachePaths(), key));
@@ -90218,7 +90264,7 @@ async function run() {
 
   // 3. Install the toolchain pinned in deps.lock (rig-managed Temurin /
   // GraalVM CE in the rig state dir; both installs are idempotent).
-  const pins = common.readLockPins();
+  const pins = common.readLockPins(locks);
   const plan = common.jvmPlan(pins, enableJvm, enableGraalvm);
   core.setOutput('jvm-version', plan.jvm);
   core.setOutput('graalvm-version', plan.graalvm);

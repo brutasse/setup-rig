@@ -73,6 +73,10 @@ All inputs and their defaults:
     # Restore the cache at setup and save it at the end of the job, keyed on deps.lock
     enable-cache: "true"
 
+    # Path(s) to deps.lock, relative to the workspace root: multiple entries
+    # (whitespace/newline-separated) and glob patterns allowed
+    lockfile: "deps.lock"
+
     # Install the JVM pinned in deps.lock, `rig jvm install` (no-op when the
     # lock pins no JVM)
     enable-jvm: "true"
@@ -97,6 +101,27 @@ still valid). Set `enable-cache: false` to opt out entirely.
 `rig-<platform>-<sha256(deps.lock)>`. Same lock → warm hit; a changed lock →
 miss and re-fetch. (It deliberately does **not** cache `~/.m2` itself, which
 holds `settings.xml` credentials.)
+
+With several lockfiles (see below) the key hashes them together, so any
+lock bump re-fetches the whole cache.
+
+### Multiple modules
+
+A monorepo's rig modules keep their `deps.lock` in their module dirs. Point
+`lockfile` at them — paths and globs, one entry per line:
+
+```yaml
+- uses: brutasse/setup-rig@v1
+  with:
+    lockfile: |
+      deps.lock
+      services/*/deps.lock
+```
+
+Every module reads and writes the same global stores, so the matched locks
+hash into **one** cache key (restored and saved as a unit), and their
+JVM/GraalVM pins must **agree** — the action installs one toolchain and
+reports one `java-home`.
 
 The rig-managed JDK and GraalVM stores are cached separately — see
 [JVM & GraalVM](#jvm--graalvm).

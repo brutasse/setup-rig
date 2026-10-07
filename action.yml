@@ -14,6 +14,10 @@ inputs:
     description: "Restore the artifact cache at setup and save it at the end of the job, keyed on deps.lock."
     required: false
     default: "true"
+  lockfile:
+    description: "Path(s) to deps.lock, relative to the workspace root: whitespace/newline-separated, glob patterns allowed (e.g. 'services/*/deps.lock'). All matched locks key the artifact cache as one unit and must agree on their JVM/GraalVM pins."
+    required: false
+    default: "deps.lock"
   enable-jvm:
     description: "Install the JVM pinned in deps.lock (rig jvm install, Temurin, sha256-verified) into the rig state dir. No-op when the lock pins no JVM."
     required: false

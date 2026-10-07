@@ -14,6 +14,13 @@ async function run() {
     throw new Error(`setup-rig: bad enable-graalvm '${enableGraalvm}' (want auto, true or false)`);
   }
 
+  // 0. Find the lockfile(s) (globs allowed, monorepo-friendly). Resolve
+  // before downloading anything: a bad lockfile pattern should fail fast.
+  const locks = await common.resolveLockFiles(core.getInput('lockfile'));
+  if (locks.length > 1) {
+    core.info(`setup-rig: ${locks.length} lockfiles: ${locks.join(', ')}`);
+  }
+
   // 1. Install rig (download + SHA256-verify + PATH).
   const inst = await common.installRig(version, token);
   core.addPath(inst.installDir);
@@ -21,9 +28,9 @@ async function run() {
   core.saveState('setup-rig-setup', 'true');
   core.info(`setup-rig: installed rig ${inst.version} (${inst.bin}) -> ${inst.dest}`);
 
-  // 2. Restore the artifact cache (key = platform + sha256(deps.lock)).
+  // 2. Restore the artifact cache (key = platform + lock content hash).
   if (enableCache) {
-    const key = common.cacheKey();
+    const key = common.cacheKey(locks);
     let hit = false;
     try {
       hit = !!(await cache.restoreCache(common.prepareCachePaths(), key));
@@ -46,7 +53,7 @@ async function run() {
 
   // 3. Install the toolchain pinned in deps.lock (rig-managed Temurin /
   // GraalVM CE in the rig state dir; both installs are idempotent).
-  const pins = common.readLockPins();
+  const pins = common.readLockPins(locks);
   const plan = common.jvmPlan(pins, enableJvm, enableGraalvm);
   core.setOutput('jvm-version', plan.jvm);
   core.setOutput('graalvm-version', plan.graalvm);
