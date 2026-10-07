@@ -223,6 +223,7 @@ module.exports = {
   parseSHA256SUMS,
   latestReleaseTag,
   installRig,
+  rigStateDir,
   cachePaths,
   prepareCachePaths,
   cacheKey,

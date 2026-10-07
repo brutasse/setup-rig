@@ -77,6 +77,10 @@ async function run() {
   }
   if (plan.jvm) common.runRig(inst.dest, ['jvm', 'install', plan.jvm], token);
   if (plan.graalvm) common.runRig(inst.dest, ['graalvm', 'install', plan.graalvm], token);
+  // The jvm cache is only saved when both installs completed: cache entries
+  // are immutable, and a half-installed store restored on every later run
+  // would poison the job forever.
+  core.saveState('setup-rig-installs-ok', 'true');
 
   // 4. Publish the installed homes (needs rig's 'jvm path'/'graalvm path'
   // commands; empty on releases that predate them).

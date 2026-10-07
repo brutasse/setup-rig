@@ -40694,6 +40694,7 @@ module.exports = {
   parseSHA256SUMS,
   latestReleaseTag,
   installRig,
+  rigStateDir,
   cachePaths,
   prepareCachePaths,
   cacheKey,
@@ -90171,6 +90172,8 @@ module.exports = /*#__PURE__*/JSON.parse('{"name":"@actions/cache","version":"4.
 var __webpack_exports__ = {};
 const core = __nccwpck_require__(37484);
 const cache = __nccwpck_require__(5116);
+const fs = __nccwpck_require__(79896);
+const path = __nccwpck_require__(16928);
 const common = __nccwpck_require__(65128);
 
 async function save(paths, key, label) {
@@ -90184,6 +90187,27 @@ async function save(paths, key, label) {
     } else {
       core.warning(`setup-rig: ${label} save failed: ${msg}`);
     }
+  }
+}
+
+// The toolchain stores live inside the rig state dir, but are cached under
+// their own pins-derived key: move them aside while taring the artifact
+// cache so it does not duplicate ~200 MB of JDK into every lock-keyed
+// entry. The renames stay inside the XDG share dir, so they are cheap.
+async function withoutStores(fn) {
+  const root = common.rigStateDir();
+  const moved = [];
+  for (const name of ['jdks', 'graal']) {
+    const from = path.join(root, name);
+    if (!fs.existsSync(from)) continue;
+    const to = path.join(path.dirname(root), `.setup-rig-${name}`);
+    fs.renameSync(from, to);
+    moved.push([to, from]);
+  }
+  try {
+    await fn();
+  } finally {
+    for (const [to, from] of moved.reverse()) fs.renameSync(to, from);
   }
 }
 
@@ -90202,7 +90226,7 @@ async function run() {
     // (avoids taring a large cache only to hit "key already exists").
     core.info(`setup-rig: cache hit on restore (${key}); not saving.`);
   } else {
-    await save(common.prepareCachePaths(), key, 'cache');
+    await withoutStores(() => save(common.prepareCachePaths(), key, 'cache'));
   }
 
   // The managed toolchain stores (keyed on the deps.lock pins).
@@ -90215,6 +90239,8 @@ async function run() {
   if (!jvm) return;
   if (jvm.hit) {
     core.info(`setup-rig: jvm cache hit on restore (${jvm.key}); not saving.`);
+  } else if (core.getState('setup-rig-installs-ok') !== 'true') {
+    core.info('setup-rig: toolchain installs did not complete; not saving the jvm cache.');
   } else {
     await save(jvm.paths, jvm.key, 'jvm cache');
   }

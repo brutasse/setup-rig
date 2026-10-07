@@ -37,6 +37,7 @@ jobs:
   pinned-jvm:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
@@ -45,16 +46,17 @@ jobs:
       - name: Provide a lockfile pinning the JVM and GraalVM
         run: |
           cat > deps.lock <<'EOF'
-          {"version": 2, "jvm": {"vendor": "temurin", "requested": "21"}, "graalvm": {"vendor": "graalvm", "requested": "21"}}
+          {"version": 2, "tool": {"name": "rig", "version": "v0.3.1"}, "jvm": {"vendor": "temurin", "requested": "17"}, "graalvm": {"vendor": "graalvm", "requested": "17"}}
           EOF
 
       - name: Setup rig (install + cache + pinned toolchain)
         id: setup
         uses: ./
         with:
-          # v0.3.0 has the jvm/graalvm commands and the path commands backing
-          # the java-home/graalvm-home outputs.
-          version: v0.3.0
+          # v0.3.1 fixes the managed installs on macOS (bundle-layout home
+          # resolution); the path commands behind java-home/graalvm-home
+          # landed in v0.3.0.
+          version: v0.3.1
           token: ${{ github.token }}
           enable-cache: true
 
@@ -69,8 +71,8 @@ jobs:
         run: |
           rig jvm list
           rig graalvm list
-          rig jvm list | grep -q 'temurin 21'
-          rig graalvm list | grep -q 'graalvm 21'
+          rig jvm list | grep -q 'temurin 17'
+          rig graalvm list | grep -q 'graalvm 17'
           test -n '${{ steps.setup.outputs.java-home }}'
           test -x '${{ steps.setup.outputs.java-home }}/bin/java'
           test -n '${{ steps.setup.outputs.graalvm-home }}'
