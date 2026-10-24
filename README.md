@@ -183,3 +183,6 @@ trusts those overrides as-is.
 npm install
 npm run build        # bundles src/restore.js -> dist/restore, src/save.js -> dist/save (ncc)
 ```
+
+`dist/` is committed and is what the runner executes, so commit the rebuild together
+with the `src/` or dependency change it came from — CI rebuilds and fails on any diff.
