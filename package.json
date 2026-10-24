@@ -6,7 +6,8 @@
   "description": "Reusable GitHub Action: install rig and restore/save its artifact cache, keyed on deps.lock",
   "main": "dist/restore/index.js",
   "scripts": {
-    "build": "ncc build src/restore.js -o dist/restore && ncc build src/save.js -o dist/save"
+    "build": "ncc build src/restore.js -o dist/restore && ncc build src/save.js -o dist/save",
+    "pin-rig": "node scripts/pin-rig.js"
   },
   "dependencies": {
     "@actions/cache": "^6.3.0",

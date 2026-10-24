@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import * as glob from '@actions/glob';
+import { defaultRigSha256, defaultRigVersion } from './rig-version.js';
 
 const REPO = 'brutasse/rig';
 const DEFAULT_LOCKFILE = 'deps.lock';
@@ -76,25 +77,51 @@ function latestReleaseTag(token) {
   });
 }
 
-// Downloads the platform binary for `version` (or the latest release), verifies
-// it against the release SHA256SUMS, and installs it to ~/.local/bin/rig.
-// Returns { version, bin, dest, installDir }.
+// The `version` input: an explicit release tag, 'latest-known' (or empty) for
+// the release pinned in rig-version.js, or 'latest' to ask the API at run time.
+async function resolveVersion(input, token) {
+  const wanted = String(input || '').trim();
+  if (!wanted || wanted === 'latest-known') return defaultRigVersion;
+  if (wanted === 'latest') {
+    const tag = await latestReleaseTag(token);
+    if (!/^v\d+\.\d+\.\d+$/.test(tag)) throw new Error(`setup-rig: latest-release lookup returned '${tag}'`);
+    return tag;
+  }
+  if (!/^v\d+\.\d+\.\d+$/.test(wanted)) {
+    throw new Error(`setup-rig: bad version '${wanted}' (want vX.Y.Z, 'latest-known' or 'latest')`);
+  }
+  return wanted;
+}
+
+// Downloads the platform binary for `version`, verifies its sha256 and installs
+// it to ~/.local/bin/rig. Returns { version, bin, dest, installDir, digestSource }.
 async function installRig(version, token) {
   const bin = rigBinaryName();
-  let ver = version;
-  if (!ver) ver = await latestReleaseTag(token);
-  if (!/^v\d+\.\d+\.\d+/.test(ver)) throw new Error(`setup-rig: bad version '${ver}' (want vX.Y.Z)`);
+  const ver = await resolveVersion(version, token);
 
   const base = `https://github.com/${REPO}/releases/download/${ver}`;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'setup-rig-'));
   const binPath = path.join(tmp, bin);
-  const sumsPath = path.join(tmp, 'SHA256SUMS');
   await download(`${base}/${bin}`, binPath);
-  await download(`${base}/SHA256SUMS`, sumsPath);
-  const want = parseSHA256SUMS(sumsPath, bin);
-  if (!want) throw new Error(`setup-rig: ${bin} not listed in SHA256SUMS`);
+
+  // The pinned release is checked against the digest that ships in this bundle:
+  // the release SHA256SUMS comes from the release it vouches for, so it cannot
+  // show that the release was replaced afterwards. Other versions fall back to
+  // those sums, which is all that is available for them.
+  let want;
+  let digestSource = 'bundled sha256';
+  if (ver === defaultRigVersion) {
+    want = defaultRigSha256[bin];
+    if (!want) throw new Error(`setup-rig: src/rig-version.js pins ${ver} with no digest for ${bin} (regenerate it: npm run pin-rig)`);
+  } else {
+    digestSource = 'release SHA256SUMS';
+    const sumsPath = path.join(tmp, 'SHA256SUMS');
+    await download(`${base}/SHA256SUMS`, sumsPath);
+    want = parseSHA256SUMS(sumsPath, bin);
+    if (!want) throw new Error(`setup-rig: ${bin} not listed in SHA256SUMS`);
+  }
   const got = sha256File(binPath);
-  if (want !== got) throw new Error(`setup-rig: sha256 mismatch for ${bin} (got ${got}, want ${want})`);
+  if (want !== got) throw new Error(`setup-rig: sha256 mismatch for ${bin} (got ${got}, want ${want}, from ${digestSource})`);
 
   const installDir = path.join(os.homedir(), '.local', 'bin');
   fs.mkdirSync(installDir, { recursive: true });
@@ -102,7 +129,7 @@ async function installRig(version, token) {
   fs.copyFileSync(binPath, dest);
   fs.chmodSync(dest, 0o755);
   fs.rmSync(tmp, { recursive: true, force: true });
-  return { version: ver, bin, dest, installDir };
+  return { version: ver, bin, dest, installDir, digestSource };
 }
 
 function rigStateDir() {

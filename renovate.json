@@ -6,6 +6,16 @@
   ],
   "extends": ["config:recommended", "security:minimumReleaseAgeNpm"],
   "osvVulnerabilityAlerts": true,
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The rig release this action installs by default (src/rig-version.js).",
+      "fileMatch": ["^src/rig-version\\.js$"],
+      "matchStrings": ["export const defaultRigVersion = '(?<currentValue>v[\\d.]+)'"],
+      "datasourceTemplate": "github-releases",
+      "packageNameTemplate": "brutasse/rig"
+    }
+  ],
   "packageRules": [
     {
       "description": "The toolkit packages move as one: @actions/cache v6 pulls @actions/glob 0.7, and both need @actions/core v3 (all three are ESM-only).",
@@ -13,9 +23,16 @@
       "groupName": "@actions toolkit"
     },
     {
-      "matchManagers": ["npm"],
+      "matchManagers": ["npm", "regex"],
       "prBodyNotes": [
         "⚠️ `dist/` is what the runner executes and Renovate cannot rebuild it: run `npm ci && npm run build` and commit the result, or the `bundle-up-to-date` job stays red. See README → Build."
+      ]
+    },
+    {
+      "description": "The pinned default reaches consumers only through an action release, so a merged bump without a tag changes nothing for them.",
+      "matchPackageNames": ["brutasse/rig"],
+      "prBodyNotes": [
+        "Rig's asset digests are not something Renovate can compute: run `npm run pin-rig && npm run build`, commit both, and after merging **cut an action tag** — otherwise the new default stays unpublished."
       ]
     }
   ]

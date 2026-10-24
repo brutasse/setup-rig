@@ -58,6 +58,32 @@ jobs:
           echo "rig-version=${{ steps.setup.outputs.rig-version }}"
           echo "cache-hit=${{ steps.setup.outputs.cache-hit }}"
 
+  default-version:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # No version input: this job is the pinned default. Both OSes, because the
+      # digests in src/rig-version.js are per-asset, and a wrong one must fail
+      # here instead of in a consumer's job.
+      - name: Setup rig (pinned default)
+        id: setup
+        uses: ./
+        with:
+          enable-cache: false
+
+      - name: The installed rig is the pinned release
+        run: |
+          pin=$(sed -nE "s/^export const defaultRigVersion = '([^']+)'.*/\1/p" src/rig-version.js)
+          test -n "$pin"
+          test '${{ steps.setup.outputs.rig-version }}' = "$pin"
+          # rig --version also advertises newer releases; only its first line
+          # reports what is installed.
+          test "$(rig --version | head -1)" = "rig version $pin"
+
   pinned-jvm:
     runs-on: ${{ matrix.os }}
     strategy:

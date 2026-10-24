@@ -1,13 +1,13 @@
 name: "Setup rig"
-description: "Install the rig binary (SHA256-verified from the brutasse/rig release), install the JVM/GraalVM pinned in deps.lock, and manage rig's artifact cache, keyed on deps.lock. The caches are saved automatically at the end of the job."
+description: "Install the rig binary (the default release is pinned and sha256-verified against a digest shipped in this action), install the JVM/GraalVM pinned in deps.lock, and manage rig's artifact cache, keyed on deps.lock. The caches are saved automatically at the end of the job."
 
 inputs:
   version:
-    description: "rig version to install (e.g. v0.1.0). Defaults to the latest release."
+    description: "rig version to install: a release tag (e.g. v0.3.1), 'latest-known' (the release pinned in this action version, verified against a digest shipped with it), or 'latest' (looked up from the GitHub API at run time)."
     required: false
-    default: ""
+    default: "latest-known"
   token:
-    description: "GitHub token for the latest-release lookup (avoids API rate limits). Caching uses the job's runtime token automatically."
+    description: "GitHub token propagated to rig's jvm/graalvm installs and used by version: latest (avoids API rate limits). Caching uses the job's runtime token automatically."
     required: false
     default: ""
   enable-cache:
@@ -33,7 +33,7 @@ inputs:
 
 outputs:
   rig-version:
-    description: "the rig version that was installed"
+    description: "the rig version that was installed (for 'latest-known', the release pinned in this action version, not a run-time lookup)"
   cache-hit:
     description: "true when the cache was restored"
   jvm-version:
