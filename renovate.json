@@ -1,6 +1,22 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
+  "description": [
+    "This action commits its ncc bundle in dist/, and the Mend-hosted app blocks postUpgradeTasks, so no dependency PR can be merged until someone rebuilds the bundle locally. Nothing here automerges for that reason.",
+    "Consumers pin this action by SHA, so a poisoned dependency runs inside their jobs with a cache token: hence the npm release-age cooldown and the OSV alerts."
+  ],
+  "extends": ["config:recommended", "security:minimumReleaseAgeNpm"],
+  "osvVulnerabilityAlerts": true,
+  "packageRules": [
+    {
+      "description": "The toolkit packages move as one: @actions/cache v6 pulls @actions/glob 0.7, and both need @actions/core v3 (all three are ESM-only).",
+      "matchPackageNames": ["@actions/*"],
+      "groupName": "@actions toolkit"
+    },
+    {
+      "matchManagers": ["npm"],
+      "prBodyNotes": [
+        "⚠️ `dist/` is what the runner executes and Renovate cannot rebuild it: run `npm ci && npm run build` and commit the result, or the `bundle-up-to-date` job stays red. See README → Build."
+      ]
+    }
   ]
 }
