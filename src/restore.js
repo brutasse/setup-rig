@@ -1,7 +1,7 @@
-const core = require('@actions/core');
-const cache = require('@actions/cache');
-const path = require('path');
-const common = require('./common');
+import * as cache from '@actions/cache';
+import * as core from '@actions/core';
+import path from 'node:path';
+import * as common from './common.js';
 
 async function run() {
   const version = (core.getInput('version') || '').trim();

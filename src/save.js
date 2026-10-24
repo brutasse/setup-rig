@@ -1,8 +1,8 @@
-const core = require('@actions/core');
-const cache = require('@actions/cache');
-const fs = require('fs');
-const path = require('path');
-const common = require('./common');
+import * as cache from '@actions/cache';
+import * as core from '@actions/core';
+import fs from 'node:fs';
+import path from 'node:path';
+import * as common from './common.js';
 
 async function save(paths, key, label) {
   try {
