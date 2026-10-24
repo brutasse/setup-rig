@@ -62,13 +62,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # amd64 + arm64 on Linux, arm64 on macOS: GitHub retired the Intel macOS
+        # images, so rig-darwin-amd64 has no runner and pinned-digests covers it.
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # No version input: this job is the pinned default. Both OSes, because the
-      # digests in src/rig-version.js are per-asset, and a wrong one must fail
-      # here instead of in a consumer's job.
+      # No version input: this job is the pinned default, and installing on the
+      # runner's own architecture is what proves that platform's digest.
       - name: Setup rig (pinned default)
         id: setup
         uses: ./
@@ -83,6 +84,22 @@ jobs:
           # rig --version also advertises newer releases; only its first line
           # reports what is installed.
           test "$(rig --version | head -1)" = "rig version $pin"
+
+  pinned-digests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Hashes every pinned asset against the bundled digest, including the one
+      # no runner here can execute.
+      - run: npm run verify-pin
 
   pinned-jvm:
     runs-on: ${{ matrix.os }}
