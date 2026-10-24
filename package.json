@@ -7,7 +7,8 @@
   "main": "dist/restore/index.js",
   "scripts": {
     "build": "ncc build src/restore.js -o dist/restore && ncc build src/save.js -o dist/save",
-    "pin-rig": "node scripts/pin-rig.js"
+    "pin-rig": "node scripts/pin-rig.js",
+    "verify-pin": "node scripts/check-pin-digests.js"
   },
   "dependencies": {
     "@actions/cache": "^6.3.0",

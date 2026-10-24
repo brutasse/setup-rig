@@ -193,6 +193,9 @@ npm run build        # bundles src/restore.js -> dist/restore, src/save.js -> di
 npm run pin-rig      # repoints src/rig-version.js (the default rig release and its
                      # asset digests) at rig's latest release, or at one given as an
                      # argument: npm run pin-rig -- v0.3.0
+npm run verify-pin   # hashes every asset of that release against the digests in
+                     # src/rig-version.js — CI runs it alongside installs on
+                     # linux/amd64, linux/arm64 and darwin/arm64
 ```
 
 `npm run pin-rig` edits a bundled constant, so it is followed by `npm run build`
