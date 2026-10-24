@@ -1,9 +1,11 @@
-const crypto = require('crypto');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { execFileSync } = require('child_process');
-const glob = require('@actions/glob');
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
+import os from 'node:os';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import * as glob from '@actions/glob';
 
 const REPO = 'brutasse/rig';
 const DEFAULT_LOCKFILE = 'deps.lock';
@@ -20,7 +22,7 @@ function rigBinaryName() {
 
 function download(url, dest) {
   return new Promise((resolve, reject) => {
-    const lib = url.startsWith('https:') ? require('https') : require('http');
+    const lib = url.startsWith('https:') ? https : http;
     lib.get(url, { headers: { 'User-Agent': 'setup-rig' } }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
@@ -56,7 +58,7 @@ function latestReleaseTag(token) {
     ? { Authorization: `token ${token}`, 'User-Agent': 'setup-rig' }
     : { 'User-Agent': 'setup-rig' };
   return new Promise((resolve, reject) => {
-    require('https').get(url, { headers }, (res) => {
+    https.get(url, { headers }, (res) => {
       if (res.statusCode !== 200) {
         res.resume();
         return reject(new Error(`setup-rig: latest-release lookup: status ${res.statusCode}`));
@@ -253,7 +255,7 @@ function rigHasCommand(bin, cmd) {
   }
 }
 
-module.exports = {
+export {
   REPO,
   rigBinaryName,
   download,
