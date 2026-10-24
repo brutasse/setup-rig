@@ -17,7 +17,7 @@ extra save step needed, and it saves even after failed steps.
 
 ```yaml
 - name: Install rig
-  uses: brutasse/setup-rig@6b2679db6657d62511f8b017c53e5f805f305349 # v1.0.0
+  uses: brutasse/setup-rig@b204f6b12fde6574ebbebe0227fcaaa10391882f # v2.0.0
 ```
 
 ### Which rig version
@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install rig + cache
-        uses: brutasse/setup-rig@6b2679db6657d62511f8b017c53e5f805f305349 # v1.0.0
+        uses: brutasse/setup-rig@b204f6b12fde6574ebbebe0227fcaaa10391882f # v2.0.0
         with:
           version: v0.3.0
           token: ${{ github.token }}
@@ -69,7 +69,7 @@ All inputs and their defaults:
 
 ```yaml
 - name: Install rig with all available options
-  uses: brutasse/setup-rig@6b2679db6657d62511f8b017c53e5f805f305349 # v1.0.0
+  uses: brutasse/setup-rig@b204f6b12fde6574ebbebe0227fcaaa10391882f # v2.0.0
   with:
     # The rig release to install: a tag like "v0.3.0", "latest-known" (the
     # release pinned in this action, the default) or "latest" (run-time lookup)
@@ -120,7 +120,7 @@ A monorepo's rig modules keep their `deps.lock` in their module dirs. Point
 `lockfile` at them — paths and globs, one entry per line:
 
 ```yaml
-- uses: brutasse/setup-rig@6b2679db6657d62511f8b017c53e5f805f305349 # v1.0.0
+- uses: brutasse/setup-rig@b204f6b12fde6574ebbebe0227fcaaa10391882f # v2.0.0
   with:
     lockfile: |
       deps.lock
@@ -162,7 +162,7 @@ re-downloads a JDK, and projects pinning nothing pay nothing.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: brutasse/setup-rig@6b2679db6657d62511f8b017c53e5f805f305349 # v1.0.0
+      - uses: brutasse/setup-rig@b204f6b12fde6574ebbebe0227fcaaa10391882f # v2.0.0
       - run: rig build --native
 ```
 
