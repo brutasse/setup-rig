@@ -97505,7 +97505,24 @@ function saveCacheV2(paths_1, key_1, options_1) {
 const external_node_path_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:path");
 ;// CONCATENATED MODULE: external "node:child_process"
 const external_node_child_process_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:child_process");
+;// CONCATENATED MODULE: ./src/rig-version.js
+// The rig release this action installs when `version` is empty or
+// "latest-known". A new rig release reaches consumers only through an action
+// release, never through a run-time lookup. Generated: npm run pin-rig.
+const rig_version_defaultRigVersion = 'v0.3.1';
+
+// Per-asset digests of that release. installRig verifies the default install
+// against these instead of the release's SHA256SUMS, so a release replaced
+// after this file was generated fails the install.
+const rig_version_defaultRigSha256 = {
+  'rig-darwin-amd64': 'b2a6b8daffb855bea54acb36feaf417e76f2e53cc1ded439594a2070559bf453',
+  'rig-darwin-arm64': 'bc0e5c3022691149921fdcd040c416a34d94683ff084284417f8fb8bd3968225',
+  'rig-linux-amd64': 'b182077be3e6200806b68e53e7154c176bc12ad39de46d166de4fb39e8a4243b',
+  'rig-linux-arm64': '369210e96593195ce3f2f32eec5eb59a25239a92d1650fb57d1191a4b93c72ab',
+};
+
 ;// CONCATENATED MODULE: ./src/common.js
+
 
 
 
@@ -97584,25 +97601,51 @@ function latestReleaseTag(token) {
   });
 }
 
-// Downloads the platform binary for `version` (or the latest release), verifies
-// it against the release SHA256SUMS, and installs it to ~/.local/bin/rig.
-// Returns { version, bin, dest, installDir }.
+// The `version` input: an explicit release tag, 'latest-known' (or empty) for
+// the release pinned in rig-version.js, or 'latest' to ask the API at run time.
+async function resolveVersion(input, token) {
+  const wanted = String(input || '').trim();
+  if (!wanted || wanted === 'latest-known') return defaultRigVersion;
+  if (wanted === 'latest') {
+    const tag = await latestReleaseTag(token);
+    if (!/^v\d+\.\d+\.\d+$/.test(tag)) throw new Error(`setup-rig: latest-release lookup returned '${tag}'`);
+    return tag;
+  }
+  if (!/^v\d+\.\d+\.\d+$/.test(wanted)) {
+    throw new Error(`setup-rig: bad version '${wanted}' (want vX.Y.Z, 'latest-known' or 'latest')`);
+  }
+  return wanted;
+}
+
+// Downloads the platform binary for `version`, verifies its sha256 and installs
+// it to ~/.local/bin/rig. Returns { version, bin, dest, installDir, digestSource }.
 async function installRig(version, token) {
   const bin = rigBinaryName();
-  let ver = version;
-  if (!ver) ver = await latestReleaseTag(token);
-  if (!/^v\d+\.\d+\.\d+/.test(ver)) throw new Error(`setup-rig: bad version '${ver}' (want vX.Y.Z)`);
+  const ver = await resolveVersion(version, token);
 
   const base = `https://github.com/${REPO}/releases/download/${ver}`;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'setup-rig-'));
   const binPath = path.join(tmp, bin);
-  const sumsPath = path.join(tmp, 'SHA256SUMS');
   await download(`${base}/${bin}`, binPath);
-  await download(`${base}/SHA256SUMS`, sumsPath);
-  const want = parseSHA256SUMS(sumsPath, bin);
-  if (!want) throw new Error(`setup-rig: ${bin} not listed in SHA256SUMS`);
+
+  // The pinned release is checked against the digest that ships in this bundle:
+  // the release SHA256SUMS comes from the release it vouches for, so it cannot
+  // show that the release was replaced afterwards. Other versions fall back to
+  // those sums, which is all that is available for them.
+  let want;
+  let digestSource = 'bundled sha256';
+  if (ver === defaultRigVersion) {
+    want = defaultRigSha256[bin];
+    if (!want) throw new Error(`setup-rig: src/rig-version.js pins ${ver} with no digest for ${bin} (regenerate it: npm run pin-rig)`);
+  } else {
+    digestSource = 'release SHA256SUMS';
+    const sumsPath = path.join(tmp, 'SHA256SUMS');
+    await download(`${base}/SHA256SUMS`, sumsPath);
+    want = parseSHA256SUMS(sumsPath, bin);
+    if (!want) throw new Error(`setup-rig: ${bin} not listed in SHA256SUMS`);
+  }
   const got = sha256File(binPath);
-  if (want !== got) throw new Error(`setup-rig: sha256 mismatch for ${bin} (got ${got}, want ${want})`);
+  if (want !== got) throw new Error(`setup-rig: sha256 mismatch for ${bin} (got ${got}, want ${want}, from ${digestSource})`);
 
   const installDir = path.join(os.homedir(), '.local', 'bin');
   fs.mkdirSync(installDir, { recursive: true });
@@ -97610,7 +97653,7 @@ async function installRig(version, token) {
   fs.copyFileSync(binPath, dest);
   fs.chmodSync(dest, 0o755);
   fs.rmSync(tmp, { recursive: true, force: true });
-  return { version: ver, bin, dest, installDir };
+  return { version: ver, bin, dest, installDir, digestSource };
 }
 
 function rigStateDir() {

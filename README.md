@@ -1,7 +1,8 @@
 # setup-rig
 
 Reusable GitHub Action that installs the [rig](https://github.com/brutasse/rig)
-binary — SHA256-verified from the release — and manages rig's artifact cache,
+binary — the release it installs by default is pinned and sha256-verified
+against a digest shipped inside the action — and manages rig's artifact cache,
 keyed on your `deps.lock`.
 
 A cache hit means the locked artifacts are already local: a subsequent
@@ -15,20 +16,26 @@ extra save step needed, and it saves even after failed steps.
 ## Usage
 
 ```yaml
-- name: Install the latest version of rig
+- name: Install rig
   uses: brutasse/setup-rig@6b2679db6657d62511f8b017c53e5f805f305349 # v1.0.0
 ```
 
-If you do not specify a version, the latest [rig](https://github.com/brutasse/rig)
-release is installed. To install a specific version, pin `version`:
+### Which rig version
 
-```yaml
-- name: Install rig v0.3.0
-  uses: brutasse/setup-rig@6b2679db6657d62511f8b017c53e5f805f305349 # v1.0.0
-  with:
-    version: v0.3.0
-    token: ${{ github.token }}
-```
+| `version` | what you get |
+|---|---|
+| *(omitted)* or `latest-known` | the release pinned in this action version, verified against a digest shipped inside the action |
+| `v0.3.0` | that release, verified against its release `SHA256SUMS` |
+| `latest` | whatever rig's newest release is when the job runs — an API lookup, verified against its `SHA256SUMS` |
+
+The default is pinned rather than looked up: a new rig release reaches your jobs
+only when this action ships a release that pins it, and the binary is checked
+against the digest bundled in `dist/` instead of a sums file published by the
+same release — sums cannot show that a release was replaced after the fact.
+`latest` gives both properties up, which is why it has to be asked for.
+
+What the pin does **not** cover: rig fetches its resolver/runner jars at run
+time and offers `rig self-update`, both outside what this action installs.
 
 ### Full workflow
 
@@ -64,11 +71,12 @@ All inputs and their defaults:
 - name: Install rig with all available options
   uses: brutasse/setup-rig@6b2679db6657d62511f8b017c53e5f805f305349 # v1.0.0
   with:
-    # The version of rig to install, e.g., "v0.3.0" (default: latest release)
-    version: ""
+    # The rig release to install: a tag like "v0.3.0", "latest-known" (the
+    # release pinned in this action, the default) or "latest" (run-time lookup)
+    version: "latest-known"
 
-    # GitHub token for the latest-release lookup, avoids API rate limits
-    # (not needed when version is set)
+    # GitHub token propagated to rig's jvm/graalvm installs and used by
+    # version: latest, avoids API rate limits
     token: ${{ github.token }}
 
     # Restore the cache at setup and save it at the end of the job, keyed on deps.lock
@@ -182,7 +190,14 @@ trusts those overrides as-is.
 ```sh
 npm install
 npm run build        # bundles src/restore.js -> dist/restore, src/save.js -> dist/save (ncc)
+npm run pin-rig      # repoints src/rig-version.js (the default rig release and its
+                     # asset digests) at rig's latest release, or at one given as an
+                     # argument: npm run pin-rig -- v0.3.0
 ```
+
+`npm run pin-rig` edits a bundled constant, so it is followed by `npm run build`
+and both are committed together — Renovate opens the bump PR and says so, and
+cutting an action tag afterwards is what publishes the new default.
 
 `dist/` is committed and is what the runner executes, so commit the rebuild together
 with the `src/` or dependency change it came from — CI rebuilds and fails on any diff.

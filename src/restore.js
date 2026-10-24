@@ -26,7 +26,7 @@ async function run() {
   core.addPath(inst.installDir);
   core.setOutput('rig-version', inst.version);
   core.saveState('setup-rig-setup', 'true');
-  core.info(`setup-rig: installed rig ${inst.version} (${inst.bin}) -> ${inst.dest}`);
+  core.info(`setup-rig: installed rig ${inst.version} (${inst.bin}, ${inst.digestSource}) -> ${inst.dest}`);
 
   // 2. Restore the artifact cache (key = platform + lock content hash).
   if (enableCache) {
