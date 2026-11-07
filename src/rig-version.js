@@ -1,7 +1,7 @@
 // The rig release this action installs when `version` is empty or
 // "latest-known". A new rig release reaches consumers only through an action
 // release, never through a run-time lookup. Generated: npm run pin-rig.
-export const defaultRigVersion = 'v0.3.1';
+export const defaultRigVersion = 'v0.4.1';
 
 // Per-asset digests of that release. installRig verifies the default install
 // against these instead of the release's SHA256SUMS, so a release replaced
